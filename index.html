@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-50">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MediScan AI — Intelligent Symptom Checker & Disease Risk Diagnosis</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Tailwind Configuration -->
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'system-ui', '-apple-system', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            brand: {
+              50: '#eef6ff',
+              100: '#d9eaff',
+              200: '#bcd9ff',
+              300: '#8ec2ff',
+              400: '#58a0ff',
+              500: '#2b7fff',
+              600: '#135bec',
+              700: '#0d45bc',
+              800: '#103b96',
+              900: '#133477',
+              950: '#0c204c',
+            },
+            emergency: '#ef4444',
+            urgent: '#f97316',
+            moderate: '#eab308',
+            selfcare: '#10b981'
+          },
+          boxShadow: {
+            'card': '0 4px 20px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.04)',
+            'elevated': '0 10px 25px -3px rgba(15, 23, 42, 0.08), 0 4px 10px -2px rgba(15, 23, 42, 0.04)',
+            'emergency-glow': '0 0 25px -3px rgba(239, 68, 68, 0.45)',
+          }
+        }
+      }
+    }
+  </script>
+
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="min-h-full text-slate-800 antialiased selection:bg-brand-500 selection:text-white flex flex-col">
+
+  <!-- Emergency Notice Alert Bar (conditionally shown if red flags detected) -->
+  <div id="red-flag-banner" class="hidden bg-rose-600 text-white px-4 py-2.5 text-xs sm:text-sm font-semibold shadow-md transition-all">
+    <div class="max-w-7xl mx-auto flex items-center justify-between gap-3">
+      <div class="flex items-center gap-2">
+        <span class="p-1 rounded-full bg-white/20 animate-pulse">
+          <i data-lucide="alert-octagon" class="w-4 h-4 text-white"></i>
+        </span>
+        <span>
+          <strong>CRITICAL EMERGENCY RED FLAG DETECTED:</strong> <span id="red-flag-reason">Symptoms suggest potential acute cardiac or neurological emergency.</span>
+        </span>
+      </div>
+      <a href="tel:911" class="px-3 py-1 bg-white text-rose-700 font-bold rounded-lg shadow-sm hover:bg-rose-50 text-xs shrink-0 flex items-center gap-1">
+        <i data-lucide="phone-call" class="w-3.5 h-3.5"></i>
+        <span>Call 911 / Local ER</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- Main Navigation Header -->
+  <header class="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200/80 shadow-xs">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        
+        <!-- Brand Logo & Title -->
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 via-indigo-600 to-teal-500 flex items-center justify-center text-white shadow-md shadow-brand-500/20 ring-4 ring-brand-50">
+            <i data-lucide="activity-square" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="text-lg font-bold text-slate-900 tracking-tight">MediScan <span class="text-brand-600">AI</span></h1>
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                Clinical Diagnostic Triage v3.0
+              </span>
+            </div>
+            <p class="text-xs text-slate-500 hidden sm:block">AI-Powered Symptom Analysis &bull; Multi-Disease Differential Diagnosis &bull; Triage Risk Protocol</p>
+          </div>
+        </div>
+
+        <!-- Quick Top Nav Actions -->
+        <div class="flex items-center gap-2 sm:gap-3">
+          <button id="btn-quick-bundle-modal" class="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200/80 border border-slate-200 rounded-lg transition">
+            <i data-lucide="sparkles" class="w-3.5 h-3.5 text-brand-600"></i>
+            <span>Common Scenarios</span>
+          </button>
+
+          <button id="btn-clear-all" class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 rounded-lg transition">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            <span class="hidden sm:inline">Clear Symptoms</span>
+          </button>
+
+          <button id="btn-open-doctor-summary" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 border border-brand-700 rounded-lg shadow-sm transition active:scale-95">
+            <i data-lucide="clipboard-list" class="w-3.5 h-3.5"></i>
+            <span>Doctor's Report</span>
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Body Content -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- Top Banner: Natural Language Symptom Input & Quick Presets -->
+    <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-5 sm:p-6 shadow-elevated relative overflow-hidden">
+      <!-- Glow decoration -->
+      <div class="absolute -right-10 -top-10 w-72 h-72 bg-brand-500/15 rounded-full blur-3xl pointer-events-none"></div>
+      <div class="absolute left-1/3 -bottom-16 w-60 h-60 bg-teal-500/10 rounded-full blur-2xl pointer-events-none"></div>
+
+      <div class="relative z-10 space-y-4">
+        
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-2">
+          <div>
+            <div class="flex items-center gap-2 mb-1">
+              <span class="px-2 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wider bg-brand-500/30 text-brand-200 border border-brand-400/30">
+                Natural Language AI Symptom Parser
+              </span>
+              <span class="text-xs text-slate-400">Describe symptoms in plain words or select below</span>
+            </div>
+            <h2 class="text-xl sm:text-2xl font-bold tracking-tight text-white">What symptoms are you experiencing?</h2>
+          </div>
+
+          <!-- Quick Scenario Badges -->
+          <div class="flex flex-wrap items-center gap-1.5">
+            <span class="text-xs text-slate-400 mr-1 hidden sm:inline">Try preset:</span>
+            <button type="button" data-scenario="flu" class="scenario-btn text-xs px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-indigo-300 border border-indigo-500/30 transition">
+              Influenza (Flu)
+            </button>
+            <button type="button" data-scenario="chest" class="scenario-btn text-xs px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-rose-300 border border-rose-500/30 transition">
+              Chest Pain / Cardiac
+            </button>
+            <button type="button" data-scenario="gastro" class="scenario-btn text-xs px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-amber-300 border border-amber-500/30 transition">
+              Food Poisoning
+            </button>
+            <button type="button" data-scenario="migraine" class="scenario-btn text-xs px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-teal-300 border border-teal-500/30 transition">
+              Migraine
+            </button>
+          </div>
+        </div>
+
+        <!-- Free Text Symptom Input Box -->
+        <div class="relative">
+          <div class="flex items-center bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-1.5 focus-within:ring-2 focus-within:ring-brand-400 focus-within:border-brand-400 transition-all shadow-inner">
+            <i data-lucide="message-square-plus" class="w-5 h-5 text-slate-400 ml-2.5 mr-2 shrink-0"></i>
+            <input 
+              type="text" 
+              id="natural-symptom-input" 
+              placeholder="e.g. 'I have a high fever, severe cough, body aches, and chest pain for 2 days...'" 
+              class="w-full bg-transparent text-sm sm:text-base text-white placeholder-slate-400 focus:outline-none px-2 py-1.5"
+            />
+            <button 
+              type="button" 
+              id="btn-extract-symptoms" 
+              class="px-4 py-2 rounded-lg bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white font-bold text-xs uppercase tracking-wider shrink-0 transition flex items-center gap-1.5 shadow-md active:scale-95"
+            >
+              <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+              <span>Extract &amp; Analyze</span>
+            </button>
+          </div>
+          <div id="natural-feedback" class="text-xs text-brand-300 mt-1.5 pl-1 hidden flex items-center gap-1.5">
+            <i data-lucide="check" class="w-3.5 h-3.5 text-emerald-400"></i>
+            <span id="natural-feedback-text">Detected 3 symptoms from text.</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Active Selected Symptoms Pill Bar -->
+    <div id="active-symptoms-bar" class="bg-white rounded-xl p-3.5 border border-slate-200/90 shadow-2xs flex flex-wrap items-center gap-2">
+      <div class="flex items-center gap-1.5 text-xs font-bold text-slate-700 pr-2 border-r border-slate-200 mr-1">
+        <i data-lucide="check-check" class="w-4 h-4 text-brand-600"></i>
+        <span>Selected Symptoms (<span id="selected-count">0</span>):</span>
+      </div>
+
+      <div id="selected-chips-container" class="flex flex-wrap items-center gap-1.5 flex-1">
+        <span class="text-xs text-slate-400 italic" id="empty-symptoms-placeholder">
+          No symptoms selected yet. Click symptoms below, use the body category filters, or type above.
+        </span>
+      </div>
+
+      <button id="btn-run-diagnosis" class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-lg shadow-sm transition active:scale-95">
+        <i data-lucide="zap" class="w-3.5 h-3.5"></i>
+        <span>Recalculate</span>
+      </button>
+    </div>
+
+    <!-- Main Workspace Grid: 2 Columns -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+      <!-- ========================================== -->
+      <!-- LEFT COLUMN: Symptom Explorer & Filters (5)-->
+      <!-- ========================================== -->
+      <section class="lg:col-span-5 space-y-5">
+
+        <!-- Patient Demographics Context Card -->
+        <div class="bg-white rounded-2xl border border-slate-200/90 shadow-card p-4 space-y-3">
+          <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+            <span class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+              <i data-lucide="user-cog" class="w-4 h-4 text-brand-600"></i>
+              Patient Profile Context
+            </span>
+            <span class="text-[11px] text-slate-400">Calibrates diagnostic likelihood</span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3 text-xs">
+            <!-- Age -->
+            <div>
+              <div class="flex justify-between text-slate-600 mb-1">
+                <span>Age:</span>
+                <span id="label-age" class="font-bold text-slate-900 font-mono">35 yrs</span>
+              </div>
+              <input type="range" id="input-patient-age" min="1" max="95" value="35" class="w-full accent-brand-600 cursor-pointer" />
+            </div>
+
+            <!-- Biological Sex -->
+            <div>
+              <span class="text-slate-600 block mb-1">Biological Sex:</span>
+              <div class="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                <button type="button" id="btn-sex-any" class="sex-pill flex-1 py-1 text-center font-semibold rounded bg-white text-slate-900 shadow-2xs">Any</button>
+                <button type="button" id="btn-sex-female" class="sex-pill flex-1 py-1 text-center font-semibold text-slate-600 hover:text-slate-900">Female</button>
+                <button type="button" id="btn-sex-male" class="sex-pill flex-1 py-1 text-center font-semibold text-slate-600 hover:text-slate-900">Male</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Symptom Duration & Severity Toggles -->
+          <div class="grid grid-cols-2 gap-3 text-xs pt-1">
+            <div>
+              <label class="text-slate-600 block mb-1">Duration of Symptoms:</label>
+              <select id="select-duration" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg p-1.5 font-medium text-slate-800 focus:outline-none focus:border-brand-500">
+                <option value="acute_hours">Less than 24 hours (Sudden)</option>
+                <option value="acute_days" selected>1 to 3 days</option>
+                <option value="subacute">4 to 14 days</option>
+                <option value="chronic">Over 2 weeks (Persistent)</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="text-slate-600 block mb-1">Perceived Severity:</label>
+              <select id="select-severity" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg p-1.5 font-medium text-slate-800 focus:outline-none focus:border-brand-500">
+                <option value="mild">Mild (Discomfort, functional)</option>
+                <option value="moderate" selected>Moderate (Impairs routine)</option>
+                <option value="severe">Severe (Incapacitating)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Anatomical Body Region Selector & Search Card -->
+        <div class="bg-white rounded-2xl border border-slate-200/90 shadow-card p-5 space-y-4">
+          
+          <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+            <div class="flex items-center gap-2">
+              <i data-lucide="layers" class="w-4 h-4 text-brand-600"></i>
+              <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider">Symptom Catalog</h3>
+            </div>
+            <span class="text-xs text-slate-400">Click to toggle symptoms</span>
+          </div>
+
+          <!-- Symptom Search Filter -->
+          <div class="relative">
+            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+            <input 
+              type="text" 
+              id="symptom-search" 
+              placeholder="Search 60+ symptoms (e.g. fever, cough, chest, pain)..." 
+              class="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 text-slate-900 font-medium placeholder-slate-400"
+            />
+          </div>
+
+          <!-- Anatomical Region Filter Pills -->
+          <div>
+            <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Filter by Body System:</div>
+            <div class="flex flex-wrap gap-1" id="category-pills">
+              <button type="button" data-cat="all" class="cat-pill active-cat px-2.5 py-1 rounded-lg text-xs font-semibold bg-brand-600 text-white shadow-2xs">All</button>
+              <button type="button" data-cat="general" class="cat-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200">General / Systemic</button>
+              <button type="button" data-cat="head" class="cat-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200">Head &amp; Neuro</button>
+              <button type="button" data-cat="chest" class="cat-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200">Chest &amp; Cardio</button>
+              <button type="button" data-cat="respiratory" class="cat-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200">Respiratory</button>
+              <button type="button" data-cat="gastro" class="cat-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200">Digestive / Abdomen</button>
+              <button type="button" data-cat="musculoskeletal" class="cat-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200">Muscles &amp; Joints</button>
+              <button type="button" data-cat="skin" class="cat-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200">Skin &amp; Allergies</button>
+            </div>
+          </div>
+
+          <!-- Clickable Symptom Grid -->
+          <div class="space-y-1">
+            <div class="flex items-center justify-between text-[11px] text-slate-400 px-1">
+              <span>Showing <span id="symptom-count-visible">0</span> symptoms</span>
+              <span class="text-rose-500 font-semibold">* Red tag = Potential Emergency Indicator</span>
+            </div>
+
+            <!-- Scrollable Symptom List Container -->
+            <div id="symptoms-list" class="max-h-[380px] overflow-y-auto pr-1 space-y-1.5 custom-scrollbar">
+              <!-- Dynamically populated via JS -->
+            </div>
+          </div>
+
+        </div>
+
+      </section>
+
+      <!-- ========================================== -->
+      <!-- RIGHT COLUMN: Diagnostics & Risk Assessment (7) -->
+      <!-- ========================================== -->
+      <section class="lg:col-span-7 space-y-5">
+
+        <!-- Diagnostic Overview Card with Triage Severity Gauge -->
+        <div id="triage-card" class="bg-white rounded-2xl border border-slate-200/90 shadow-card p-5 sm:p-6 space-y-5 relative overflow-hidden transition-all duration-300">
+          
+          <!-- Subtle background glow based on risk -->
+          <div id="triage-bg-glow" class="absolute -right-16 -top-16 w-60 h-60 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none transition-all duration-700"></div>
+
+          <!-- Header -->
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-slate-100 relative z-10">
+            <div>
+              <div class="flex items-center gap-2">
+                <i data-lucide="shield-alert" class="w-5 h-5 text-brand-600"></i>
+                <h3 class="text-base font-bold text-slate-900">Clinical Triage &amp; Risk Urgency</h3>
+              </div>
+              <p class="text-xs text-slate-500 mt-0.5">Automated triage classification &bull; Clinical urgency protocol</p>
+            </div>
+
+            <!-- Urgency Level Badge -->
+            <div class="flex items-center gap-2">
+              <span class="text-[10px] uppercase font-bold text-slate-400">Recommended Action:</span>
+              <div id="triage-badge" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-100 text-emerald-900 border border-emerald-300 text-xs font-extrabold uppercase tracking-wider shadow-2xs">
+                <span id="triage-dot" class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span id="triage-badge-text">Routine / Self-Care</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Animated Meter & Urgency Metrics -->
+          <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-center relative z-10">
+            
+            <!-- Left: Triage Urgency Meter (7 cols) -->
+            <div class="md:col-span-7 space-y-2">
+              <div class="flex items-center justify-between text-xs font-bold text-slate-700">
+                <span>Calculated Urgency Level:</span>
+                <span id="urgency-score-label" class="font-mono text-emerald-600 font-extrabold text-sm">Level 1 - Low</span>
+              </div>
+
+              <!-- Multi-segment Urgency Track Bar -->
+              <div class="relative w-full h-3.5 bg-slate-100 rounded-full overflow-hidden p-0.5 border border-slate-200">
+                <div class="grid grid-cols-4 h-full rounded-full overflow-hidden gap-0.5">
+                  <div class="bg-emerald-500 h-full" title="Self-Care / Low"></div>
+                  <div class="bg-amber-400 h-full" title="Moderate / Primary Care"></div>
+                  <div class="bg-orange-500 h-full" title="Urgent / Urgent Care Clinic"></div>
+                  <div class="bg-rose-600 h-full" title="Emergency / 911 Emergency"></div>
+                </div>
+                <!-- Needle/Marker Pin -->
+                <div id="triage-pointer" class="absolute top-0 bottom-0 w-2.5 bg-slate-900 rounded-full border-2 border-white shadow-md transform -translate-x-1/2 transition-all duration-700" style="left: 12%"></div>
+              </div>
+
+              <div class="flex justify-between text-[10px] text-slate-400 font-semibold px-0.5">
+                <span class="text-emerald-700">Self-Care</span>
+                <span class="text-amber-700">See Doctor</span>
+                <span class="text-orange-700">Urgent Care</span>
+                <span class="text-rose-700 font-bold">Emergency (911)</span>
+              </div>
+            </div>
+
+            <!-- Right: Action Timeframe Guidelines (5 cols) -->
+            <div class="md:col-span-5 bg-slate-50 rounded-xl p-3 border border-slate-200/80 space-y-1">
+              <span class="text-[10px] font-bold uppercase text-slate-400 block tracking-wider">Clinical Guidance</span>
+              <p id="triage-guideline-text" class="text-xs text-slate-700 font-medium leading-relaxed">
+                Symptoms are mild and consistent with self-limiting conditions. Maintain hydration, rest, and monitor for changes.
+              </p>
+            </div>
+
+          </div>
+
+        </div>
+
+        <!-- Differential Diagnosis Results Card -->
+        <div class="bg-white rounded-2xl border border-slate-200/90 shadow-card p-5 sm:p-6 space-y-5">
+          
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+            <div>
+              <div class="flex items-center gap-2">
+                <i data-lucide="stethoscope" class="w-5 h-5 text-indigo-600"></i>
+                <h3 class="text-base font-bold text-slate-900">Differential Diagnosis Predictions</h3>
+              </div>
+              <p class="text-xs text-slate-500 mt-0.5">Ranked by probabilistic symptom overlap &amp; risk factors</p>
+            </div>
+
+            <!-- Active View Switcher -->
+            <div class="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs font-semibold">
+              <button type="button" id="tab-ranked" class="px-3 py-1 rounded-md bg-white text-slate-900 shadow-2xs font-bold transition">Ranked List</button>
+              <button type="button" id="tab-matrix" class="px-3 py-1 rounded-md text-slate-600 hover:text-slate-900 transition">Compare Matrix</button>
+            </div>
+          </div>
+
+          <!-- VIEW A: RANKED DISEASE CARDS -->
+          <div id="view-ranked-diseases" class="space-y-3">
+            <div id="diseases-container" class="space-y-3">
+              <!-- Dynamically rendered by JS -->
+            </div>
+          </div>
+
+          <!-- VIEW B: SIDE-BY-SIDE COMPARISON MATRIX -->
+          <div id="view-matrix" class="hidden overflow-x-auto">
+            <table class="w-full text-xs text-left border-collapse">
+              <thead>
+                <tr class="bg-slate-100 border-b border-slate-200 text-slate-600 font-bold uppercase text-[10px]">
+                  <th class="p-2.5">Condition</th>
+                  <th class="p-2.5">Probability</th>
+                  <th class="p-2.5">Urgency</th>
+                  <th class="p-2.5">Typical Duration</th>
+                  <th class="p-2.5">Key Differentiating Factor</th>
+                </tr>
+              </thead>
+              <tbody id="matrix-table-body" class="divide-y divide-slate-100">
+                <!-- Dynamically populated via JS -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Selected Condition In-Depth Clinical Dossier -->
+          <div id="disease-deep-dive" class="mt-4 pt-4 border-t border-slate-100 bg-slate-50/80 rounded-xl p-4 border border-slate-200 space-y-4">
+            
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <span class="text-[10px] uppercase font-bold text-brand-600 tracking-wider">Detailed Clinical Dossier</span>
+                <h4 id="deep-dive-title" class="text-base font-extrabold text-slate-900">Select a condition above to inspect</h4>
+                <p id="deep-dive-desc" class="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                  Click on any disease card in the list above to view comprehensive diagnostic tests, specialist referrals, matched vs. missing symptoms, and home care protocols.
+                </p>
+              </div>
+              <span id="deep-dive-badge" class="shrink-0 text-xs font-bold px-2.5 py-1 rounded-lg bg-slate-200 text-slate-700">
+                Overview
+              </span>
+            </div>
+
+            <!-- Deep Dive Subsections Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1 text-xs">
+              
+              <!-- Matched vs Missing Symptoms -->
+              <div class="p-3 bg-white rounded-lg border border-slate-200 space-y-2">
+                <span class="font-bold text-slate-800 flex items-center gap-1.5 text-[11px] uppercase tracking-wider">
+                  <i data-lucide="check-circle" class="w-3.5 h-3.5 text-emerald-600"></i>
+                  Symptom Alignment
+                </span>
+                <div>
+                  <div class="text-[11px] font-semibold text-slate-500 mb-1">Matched in Patient:</div>
+                  <div id="deep-dive-matched-tags" class="flex flex-wrap gap-1">
+                    <span class="text-slate-400 italic text-[11px]">Select a disease</span>
+                  </div>
+                </div>
+                <div class="pt-1 border-t border-slate-100">
+                  <div class="text-[11px] font-semibold text-slate-400 mb-1">Other Common Signs:</div>
+                  <div id="deep-dive-unmatched-tags" class="flex flex-wrap gap-1">
+                    <span class="text-slate-400 italic text-[11px]">-</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Recommended Diagnostic Tests & Specialist -->
+              <div class="p-3 bg-white rounded-lg border border-slate-200 space-y-2">
+                <span class="font-bold text-slate-800 flex items-center gap-1.5 text-[11px] uppercase tracking-wider">
+                  <i data-lucide="microscope" class="w-3.5 h-3.5 text-indigo-600"></i>
+                  Recommended Lab Tests &amp; Specialist
+                </span>
+                
+                <div>
+                  <span class="text-[10px] text-slate-400 uppercase font-semibold block">Relevant Medical Specialist:</span>
+                  <span id="deep-dive-specialist" class="font-bold text-indigo-700 text-xs">General Practitioner / Family Medicine</span>
+                </div>
+
+                <div class="pt-1 border-t border-slate-100">
+                  <span class="text-[10px] text-slate-400 uppercase font-semibold block mb-1">Diagnostic Workup Tests:</span>
+                  <ul id="deep-dive-tests" class="list-disc list-inside space-y-0.5 text-slate-700 text-[11px]">
+                    <li>Complete Blood Count (CBC)</li>
+                    <li>Clinical Evaluation</li>
+                  </ul>
+                </div>
+              </div>
+
+              <!-- Home Care / Self-Care Advice -->
+              <div class="p-3 bg-white rounded-lg border border-slate-200 space-y-1 md:col-span-2">
+                <span class="font-bold text-slate-800 flex items-center gap-1.5 text-[11px] uppercase tracking-wider">
+                  <i data-lucide="heart-handshake" class="w-3.5 h-3.5 text-teal-600"></i>
+                  Supportive Care &amp; Self-Management Guidance
+                </span>
+                <p id="deep-dive-care" class="text-xs text-slate-600 leading-relaxed">
+                  Maintain oral hydration with electrolyte solutions, prioritize 8+ hours of restful sleep, and avoid strenuous physical exertion.
+                </p>
+                <div class="text-[11px] text-rose-700 font-semibold bg-rose-50 p-2 rounded border border-rose-100 mt-2 flex items-start gap-1.5">
+                  <i data-lucide="alert-triangle" class="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5"></i>
+                  <span id="deep-dive-warning">Seek emergency care if you experience chest pain, sudden breathlessness, or persistent high fever.</span>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </section>
+
+    </div>
+
+  </main>
+
+  <!-- Doctor's Consultation Summary Modal -->
+  <div id="summary-modal" class="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 p-6 space-y-5 animate-in fade-in zoom-in-95 duration-200">
+      
+      <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+        <div class="flex items-center gap-2">
+          <i data-lucide="file-badge" class="w-5 h-5 text-brand-600"></i>
+          <div>
+            <h3 class="text-base font-bold text-slate-900">Doctor's Consultation &amp; Triage Note</h3>
+            <p class="text-xs text-slate-500">Structured patient symptom summary for your medical appointment</p>
+          </div>
+        </div>
+        <button id="btn-close-modal" class="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Formatted Output text -->
+      <div id="modal-report-content" class="text-xs text-slate-700 space-y-4 font-mono bg-slate-50 p-4 rounded-xl border border-slate-200 whitespace-pre-wrap">
+        <!-- Rendered text summary -->
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex items-center justify-end gap-3 pt-2">
+        <button id="btn-copy-summary" class="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition flex items-center gap-1.5">
+          <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+          <span>Copy to Clipboard</span>
+        </button>
+        <button id="btn-print-summary" class="px-4 py-2 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-lg transition flex items-center gap-1.5 shadow-sm">
+          <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+          <span>Print / Save PDF</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Common Scenarios Modal -->
+  <div id="scenarios-modal" class="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+        <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+          <i data-lucide="sparkles" class="w-5 h-5 text-brand-600"></i>
+          Select a Common Medical Scenario
+        </h3>
+        <button id="btn-close-scenarios" class="p-1 rounded-lg text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-2 text-xs">
+        <button type="button" data-scenario="flu" class="w-full text-left p-3 rounded-xl border border-slate-200 hover:border-brand-500 hover:bg-brand-50/50 transition scenario-btn">
+          <div class="font-bold text-slate-900">Flu-like Illness / Viral Infection</div>
+          <div class="text-slate-500 text-[11px] mt-0.5">High fever, chills, dry cough, severe body aches, sore throat, fatigue.</div>
+        </button>
+
+        <button type="button" data-scenario="chest" class="w-full text-left p-3 rounded-xl border border-rose-200 bg-rose-50/30 hover:border-rose-500 hover:bg-rose-50 transition scenario-btn">
+          <div class="font-bold text-rose-900">Acute Cardiac Emergency Warning (Red Flag)</div>
+          <div class="text-rose-700 text-[11px] mt-0.5">Crushing chest pressure, pain radiating to left arm, shortness of breath, cold sweat.</div>
+        </button>
+
+        <button type="button" data-scenario="gastro" class="w-full text-left p-3 rounded-xl border border-slate-200 hover:border-brand-500 hover:bg-brand-50/50 transition scenario-btn">
+          <div class="font-bold text-slate-900">Gastroenteritis (Food Poisoning)</div>
+          <div class="text-slate-500 text-[11px] mt-0.5">Nausea, vomiting, watery diarrhea, abdominal cramps, low-grade fever.</div>
+        </button>
+
+        <button type="button" data-scenario="appendicitis" class="w-full text-left p-3 rounded-xl border border-orange-200 bg-orange-50/30 hover:border-orange-500 hover:bg-orange-50 transition scenario-btn">
+          <div class="font-bold text-orange-900">Acute Lower Abdominal (Appendicitis Warning)</div>
+          <div class="text-orange-700 text-[11px] mt-0.5">Sharp lower right abdominal pain, fever, nausea, loss of appetite.</div>
+        </button>
+
+        <button type="button" data-scenario="migraine" class="w-full text-left p-3 rounded-xl border border-slate-200 hover:border-brand-500 hover:bg-brand-50/50 transition scenario-btn">
+          <div class="font-bold text-slate-900">Migraine Headache with Photophobia</div>
+          <div class="text-slate-500 text-[11px] mt-0.5">Severe throbbing unilateral headache, light sensitivity, nausea, dizziness.</div>
+        </button>
+
+        <button type="button" data-scenario="uti" class="w-full text-left p-3 rounded-xl border border-slate-200 hover:border-brand-500 hover:bg-brand-50/50 transition scenario-btn">
+          <div class="font-bold text-slate-900">Urinary Tract Infection (UTI)</div>
+          <div class="text-slate-500 text-[11px] mt-0.5">Burning urination, urinary frequency &amp; urgency, pelvic pressure.</div>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none flex items-center gap-2 px-4 py-2.5 rounded-xl shadow-lg bg-slate-900 text-white text-xs font-medium">
+    <i data-lucide="check" class="w-4 h-4 text-emerald-400"></i>
+    <span id="toast-text">Notification message</span>
+  </div>
+
+  <!-- Footer with Disclaimer -->
+  <footer class="mt-auto border-t border-slate-200/80 bg-white py-4">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-400">
+      <div class="flex items-center gap-2">
+        <span class="font-bold text-slate-700">MediScan AI</span>
+        <span>&bull;</span>
+        <span>Clinical Decision Support System</span>
+      </div>
+      <div class="text-center sm:text-right text-[11px] text-slate-400 max-w-xl">
+        <strong>Medical Disclaimer:</strong> This application is for educational and informational triage purposes only. It does not provide definitive medical diagnoses. If you have severe symptoms, call 911 or visit an Emergency Room immediately.
+      </div>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="app.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      if (window.lucide) {
+        lucide.createIcons();
+      }
+    });
+  </script>
+</body>
+</html>
